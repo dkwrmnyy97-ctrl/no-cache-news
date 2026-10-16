@@ -1,0 +1,5 @@
+{
+  "appId": "com.bellafugaro.aidashboard",
+  "appName": "Bella AI Dashboard",
+  "webDir": "client/dist"
+}
