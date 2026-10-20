@@ -46,24 +46,59 @@ function PodcastCard({ episode }) {
   )
 }
 
-export default function PodcastSection({ period }) {
+/** Podcast suggestions for Your Briefing. Pass enabled=false to skip fetching (Worldwide). */
+export function usePodcastSuggestions(period, enabled = true) {
   const [episodes, setEpisodes] = useState(null) // null = loading, [] = none found
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
     setEpisodes(null)
     setError(false)
     fetch(`/api/podcast-suggestions?period=${period}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(data => setEpisodes(data))
-      .catch(() => setError(true))
-  }, [period])
+      .then(data => { if (!cancelled) setEpisodes(data) })
+      .catch(() => { if (!cancelled) setError(true) })
+    return () => { cancelled = true }
+  }, [period, enabled])
+
+  return { episodes, error }
+}
+
+export function PodcastCards({ episodes }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {episodes.map((ep, i) => (
+        <PodcastCard key={i} episode={ep} />
+      ))}
+    </div>
+  )
+}
+
+export function PodcastSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="card p-5 border border-navy-700 animate-pulse">
+          <div className="h-3 bg-navy-600 rounded w-1/2 mb-3" />
+          <div className="h-4 bg-navy-600 rounded w-full mb-2" />
+          <div className="h-4 bg-navy-600 rounded w-3/4 mb-3" />
+          <div className="h-3 bg-navy-700 rounded w-full" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default function PodcastSection({ period }) {
+  const { episodes, error } = usePodcastSuggestions(period)
 
   // Don't render the section at all if nothing to show
   if (error || (episodes !== null && episodes.length === 0)) return null
 
   return (
-    <div>
+    <div id="podcasts" className="scroll-mt-40">
       <div className="flex items-center gap-3 mb-5">
         <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
           Go Deeper · Relevant Episodes
@@ -71,25 +106,7 @@ export default function PodcastSection({ period }) {
         <div className="flex-1 h-px bg-navy-700" />
       </div>
 
-      {episodes === null ? (
-        // Loading skeleton
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="card p-5 border border-navy-700 animate-pulse">
-              <div className="h-3 bg-navy-600 rounded w-1/2 mb-3" />
-              <div className="h-4 bg-navy-600 rounded w-full mb-2" />
-              <div className="h-4 bg-navy-600 rounded w-3/4 mb-3" />
-              <div className="h-3 bg-navy-700 rounded w-full" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {episodes.map((ep, i) => (
-            <PodcastCard key={i} episode={ep} />
-          ))}
-        </div>
-      )}
+      {episodes === null ? <PodcastSkeleton /> : <PodcastCards episodes={episodes} />}
     </div>
   )
 }

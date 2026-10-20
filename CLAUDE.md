@@ -22,6 +22,15 @@ A locally-hosted AI news dashboard that aggregates RSS feeds, generates AI-power
 - `GET /api/briefing` — fetch + cache AI-generated news digest
 - `POST /api/chat` — Q&A against cached articles
 - `POST /api/refresh` — flush cache
+- `GET /api/worldwide/briefing?region=all|europe|china|apac` — Worldwide coverage; returns 202 `pending` while first generated (client polls)
+- `/api/chat` and `/api/audio-briefing` accept `coverage`, `region`, `period` so they use the briefing on screen
+
+## Worldwide coverage
+- `lib/worldwide-sources.js` — region registry + international feeds (publisher country, original language). Add a region by adding to `REGIONS` + sources.
+- `lib/worldwide.js` — ingest → multilingual relevance filter → dedupe → one Claude call per region → validate citations → cache `briefing:worldwide:<region>`. Never touches the Your Briefing pool.
+- Region = where the publisher is based; `bullet.places` = what the story is about.
+- Needs `ANTHROPIC_API_KEY`. Scheduled refresh only runs if Worldwide was viewed in the last 24h (3 Claude calls/run).
+- Mobile (< md / 768px) uses tiles + bottom-sheet panels (`MobileBriefing.jsx`, `BottomSheet.jsx`); desktop keeps expanded sections.
 
 ## Dev Commands
 ```bash

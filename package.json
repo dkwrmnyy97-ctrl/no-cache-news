@@ -6,7 +6,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "cd client && npm install && npm run build",
-    "test": "node --test tests/dedup.test.js tests/stories.test.js"
+    "test": "node --test tests/dedup.test.js tests/stories.test.js tests/worldwide.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",

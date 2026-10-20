@@ -44,6 +44,9 @@ function ChatMessage({ msg }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-2xl w-full space-y-4 animate-fade-in">
+        {msg.contextLabel && (
+          <p className="text-xs text-slate-600 sm:ml-10">From {msg.contextLabel}</p>
+        )}
         {/* AI icon + summary */}
         <div className="flex items-start gap-3">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-xs font-black text-white shrink-0 mt-0.5">
@@ -153,15 +156,21 @@ function ChatMessage({ msg }) {
   )
 }
 
-export default function ChatSection() {
-  const [messages, setMessages] = useState([])
+/**
+ * props:
+ *   messages / setMessages — conversation state, owned by App so it survives
+ *                            switching between the mobile and desktop layouts
+ *   context — { coverage, region, period, label }: the briefing being viewed.
+ *             Sent with every question so answers come from that briefing only.
+ */
+export default function ChatSection({ messages, setMessages, context }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length) bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [messages])
 
   async function sendMessage(query) {
@@ -171,19 +180,20 @@ export default function ChatSection() {
     setInput('')
     setMessages(m => [...m, { role: 'user', content: q }])
     setLoading(true)
+    const sentContext = context
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({ query: q, coverage: sentContext.coverage, region: sentContext.region, period: sentContext.period }),
       })
       const data = await res.json()
 
       if (!res.ok) {
         setMessages(m => [...m, { role: 'error', content: data.error || 'Request failed' }])
       } else {
-        setMessages(m => [...m, { role: 'assistant', data }])
+        setMessages(m => [...m, { role: 'assistant', data, contextLabel: data.context?.label || sentContext.label }])
       }
     } catch {
       setMessages(m => [...m, { role: 'error', content: 'Network error — is the server running?' }])
@@ -201,7 +211,7 @@ export default function ChatSection() {
   }
 
   return (
-    <div className="card p-6">
+    <div className="card p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
         <span className="text-lg">💬</span>
@@ -257,6 +267,7 @@ export default function ChatSection() {
       )}
 
       {/* Input */}
+      <p className="text-xs text-slate-600 mb-2">Answering from: <span className="text-slate-400">{context.label}</span></p>
       <div className="flex gap-3">
         <input
           ref={inputRef}
@@ -264,7 +275,8 @@ export default function ChatSection() {
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKey}
           placeholder="Ask about any AI topic, company, model, or trend..."
-          className="flex-1 bg-navy-800 border border-navy-600 focus:border-blue-500/50 focus:outline-none rounded-xl px-4 py-3 text-sm text-slate-200 placeholder:text-slate-700 transition-colors"
+          aria-label="Ask a question about this briefing"
+          className="flex-1 min-w-0 bg-navy-800 border border-navy-600 focus:border-blue-500/50 focus:outline-none rounded-xl px-4 py-3 text-sm text-slate-200 placeholder:text-slate-700 transition-colors"
           disabled={loading}
         />
         <button

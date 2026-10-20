@@ -22,16 +22,22 @@ function pickBestVoice() {
  * Falls back to browser speechSynthesis if OPENAI_API_KEY is not set on the server.
  *
  * props:
- *   stories — flat story list from buildFlatStories(), same data shown on screen
- *   period  — 'today' | 'week' | 'month', passed to /api/audio-briefing
+ *   stories     — flat story list from buildFlatStories(), same data shown on screen
+ *   period      — 'today' | 'week' | 'month', passed to /api/audio-briefing
+ *   audioParams — extra query string selecting the briefing (coverage/region)
+ *   intro       — spoken intro for the browser TTS fallback
+ *
+ * The parent remounts this (key) when coverage, region or timeframe changes,
+ * which stops any active playback.
  */
-export default function ReadAloudPlayer({ stories, period }) {
+export default function ReadAloudPlayer({ stories, period, audioParams = '', intro = "Here's your AI and cybersecurity briefing. " }) {
   const [status, setStatus] = useState('idle')
   // 'idle' | 'loading' | 'playing' | 'paused' | 'blocked'
   const [mode, setMode] = useState(null)       // null | 'server' | 'browser'
   const [elapsed, setElapsed] = useState(0)
   const [duration, setDuration] = useState(0)
   const [storyIndex, setStoryIndex] = useState(-1) // browser TTS only
+  const [serverCount, setServerCount] = useState(null) // { included, total } from server TTS
 
   const audioRef    = useRef(null)
   const blobUrlRef  = useRef(null)
@@ -59,7 +65,7 @@ export default function ReadAloudPlayer({ stories, period }) {
   function fullStop() {
     cleanupResources();
     syncStatus('idle'); syncMode(null); syncIdx(-1);
-    setElapsed(0); setDuration(0);
+    setElapsed(0); setDuration(0); setServerCount(null);
   }
 
   useEffect(() => () => cleanupResources(), []);
@@ -77,8 +83,8 @@ export default function ReadAloudPlayer({ stories, period }) {
 
     syncIdx(index); syncStatus('playing');
     const story = stories[index];
-    const intro = index === 0 ? "Here's your AI and cybersecurity briefing for today. " : '';
-    const utterance = new SpeechSynthesisUtterance(`${intro}${story.sectionTitle}: ${story.text}`);
+    const lead = index === 0 ? intro : '';
+    const utterance = new SpeechSynthesisUtterance(`${lead}${story.sectionTitle}: ${story.text}`);
     utterance.rate = 0.92;
     const voice = pickBestVoice();
     if (voice) utterance.voice = voice;
@@ -98,8 +104,11 @@ export default function ReadAloudPlayer({ stories, period }) {
     abortRef.current = controller;
 
     try {
-      const res = await fetch(`/api/audio-briefing?period=${period}`, { signal: controller.signal });
+      const res = await fetch(`/api/audio-briefing?period=${period}${audioParams}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`${res.status}`);
+      const included = Number(res.headers.get('X-Stories-Included'));
+      const totalStories = Number(res.headers.get('X-Stories-Total'));
+      if (included && totalStories) setServerCount({ included, total: totalStories });
 
       const blob = await res.blob();
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
@@ -255,6 +264,9 @@ export default function ReadAloudPlayer({ stories, period }) {
               )}
               <p className="text-xs text-slate-500">
                 {duration > 0 ? `${fmt(elapsed)} / ${fmt(duration)}` : 'Playing…'}
+                {serverCount && serverCount.included < serverCount.total && (
+                  <span> · first {serverCount.included} of {serverCount.total} stories</span>
+                )}
               </p>
             </>
           )}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import CoverageSelector from './CoverageSelector.jsx'
 
 const PERIODS = [
   { id: 'today', label: 'Today' },
@@ -6,7 +7,7 @@ const PERIODS = [
   { id: 'month', label: 'This Month' },
 ]
 
-export default function Header({ period, onPeriodChange, onRefresh, lastUpdated, totalArticles, isFallback }) {
+export default function Header({ period, onPeriodChange, onRefresh, lastUpdated, totalArticles, isFallback, coverage, onCoverageChange, region, onRegionChange, regions, compact = false }) {
   const [refreshing, setRefreshing] = useState(false)
 
   async function handleRefresh() {
@@ -52,12 +53,23 @@ export default function Header({ period, onPeriodChange, onRefresh, lastUpdated,
           </button>
         </div>
 
-        {/* Row 2: Period tabs (full width) */}
+        {/* Row 2: Coverage — Your Briefing | Worldwide (+ Region) */}
+        <CoverageSelector
+          coverage={coverage}
+          onCoverageChange={onCoverageChange}
+          region={region}
+          onRegionChange={onRegionChange}
+          regions={regions}
+          variant={compact ? 'tabs' : 'pill'}
+        />
+
+        {/* Row 3: Period tabs (full width) */}
         <div className="flex items-center gap-1 bg-navy-800 rounded-lg p-1 border border-navy-600">
           {PERIODS.map(p => (
             <button
               key={p.id}
               onClick={() => onPeriodChange(p.id)}
+              aria-pressed={period === p.id}
               className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 period === p.id
                   ? 'bg-blue-600 text-white shadow-sm'

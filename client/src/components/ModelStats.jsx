@@ -90,11 +90,39 @@ function LeaderCard({ leader }) {
 
 const PERIOD_LABEL = { today: 'today', week: 'this week', month: 'this month' }
 
+export function ModelActivityList({ stats = [], twoColumn = false }) {
+  const maxMentions = Math.max(...stats.map(m => m.mentions || 0), 1)
+  return (
+    <div className={`grid gap-4 ${twoColumn ? 'md:grid-cols-2' : ''}`}>
+      {stats.map((model, i) => (
+        <ModelBar
+          key={model.name}
+          model={model}
+          maxMentions={maxMentions}
+          colorClass={MODEL_COLORS[i % MODEL_COLORS.length]}
+        />
+      ))}
+    </div>
+  )
+}
+
+export function LeaderList({ leaderStats = [] }) {
+  return (
+    <div className="grid grid-cols-1 gap-3">
+      {leaderStats.map((leader, i) => (
+        <LeaderCard key={i} leader={leader} />
+      ))}
+    </div>
+  )
+}
+
+export function periodPhrase(period) {
+  return PERIOD_LABEL[period] || 'this week'
+}
+
 export default function ModelStats({ stats = [], leaderStats = [], period = 'week' }) {
   const periodLabel = PERIOD_LABEL[period] || 'this week'
   if (!stats.length && !leaderStats.length) return null
-
-  const maxMentions = Math.max(...stats.map(m => m.mentions || 0), 1)
 
   return (
     <div className={`grid grid-cols-1 gap-6 ${stats.length && leaderStats.length ? 'md:grid-cols-2' : ''}`}>
@@ -106,16 +134,7 @@ export default function ModelStats({ stats = [], leaderStats = [], period = 'wee
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Model Activity</h2>
             <span className="ml-auto text-xs text-slate-700">by news mentions {periodLabel}</span>
           </div>
-          <div className={`grid gap-4 ${stats.length > 4 && !leaderStats.length ? 'md:grid-cols-2' : ''}`}>
-            {stats.map((model, i) => (
-              <ModelBar
-                key={model.name}
-                model={model}
-                maxMentions={maxMentions}
-                colorClass={MODEL_COLORS[i % MODEL_COLORS.length]}
-              />
-            ))}
-          </div>
+          <ModelActivityList stats={stats} twoColumn={stats.length > 4 && !leaderStats.length} />
         </div>
       )}
 
@@ -127,11 +146,7 @@ export default function ModelStats({ stats = [], leaderStats = [], period = 'wee
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Industry Leaders</h2>
             <span className="ml-auto text-xs text-slate-700">in the news {periodLabel}</span>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {leaderStats.map((leader, i) => (
-              <LeaderCard key={i} leader={leader} />
-            ))}
-          </div>
+          <LeaderList leaderStats={leaderStats} />
         </div>
       )}
     </div>

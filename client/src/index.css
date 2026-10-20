@@ -125,3 +125,36 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ── Mobile reading panel ─────────────────────────────────────────────── */
+/* dvh tracks mobile browser toolbars; vh is the fallback. */
+.sheet {
+  height: 90vh;
+  height: 90dvh;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 2rem);
+}
+
+.sheet-body {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Category tiles: no lift-on-hover (it fights with touch), keep the press feedback. */
+.tile {
+  background: linear-gradient(135deg, #0d1526 0%, #121e36 100%);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  border-radius: 12px;
+  transition: border-color 0.15s, background-color 0.15s, transform 0.1s;
+}
+.tile:active {
+  transform: scale(0.98);
+}
+.tile:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile, .tile:active { transition: none; transform: none; }
+}

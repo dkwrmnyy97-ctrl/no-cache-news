@@ -34,6 +34,8 @@ AI news arrives from many directions at once: research, product launches, policy
 - **"Ask your AI analyst" chat.** The server picks relevant cached articles by keyword score, and Claude answers with a summary, key points, sentiment, and chart data. The client renders the chart with Recharts.
 - **Podcast suggestions.** The server collects recent episodes from six AI podcast feeds, and Claude picks the ones most relevant to the current briefing.
 - **Read Aloud.** The server builds a script from the briefing and converts it to an MP3 with OpenAI text-to-speech, then caches it. If that fails, the client falls back to the browser's built-in speech synthesis.
+- **Worldwide coverage.** A separate view covers AI news from publishers based in Europe, China, and Asia-Pacific, including non-English sources. `lib/worldwide.js` runs its own pipeline: it ingests the regional feeds, filters for relevance across languages, de-duplicates, makes one Claude call per region, and checks that every citation points to a real article. It never mixes with the main briefing. The first request returns `pending` while the briefing is generated, and the client polls until it's ready.
+- **Mobile layout.** On phones, sections collapse into tiles that open as bottom sheets. Desktop keeps the expanded layout.
 - **Fallback mode.** Without an Anthropic key, the server builds a keyword-based briefing so the app still works.
 - **PWA.** You can install it on an iPhone home screen.
 
@@ -66,25 +68,30 @@ RSS feeds ──► Express server (server.js) ──► Claude (briefing, chat,
   - Podcast suggestions and audio: 30 minutes.
 - **Frontend:** React 18, Vite 5, Tailwind CSS 3, Recharts.
 - **Hosting (production):** Railway, behind a custom domain. Secrets are set as Railway environment variables and are never shipped to the client.
-- **Tests:** `node:test` suites for de-duplication and story flattening (`npm test`).
+- **Tests:** `node:test` suites for de-duplication, story flattening, Worldwide coverage (`npm test`), and abuse limits (`node --test tests/abuse-limits.test.js`).
 
 ### API
 
 | Route | Purpose |
 |---|---|
 | `GET /api/briefing` | Cached, Claude-generated briefing for all periods |
-| `POST /api/chat` | Q&A over cached articles |
+| `GET /api/worldwide/briefing?region=all\|europe\|china\|apac` | Worldwide coverage (202 `pending` while first generated) |
+| `POST /api/chat` | Q&A over cached articles (rate-limited) |
 | `GET /api/podcast-suggestions?period=` | Relevant podcast episodes |
 | `GET /api/audio-briefing?period=` | MP3 read-aloud of the briefing |
-| `POST /api/refresh` | Clear the cache |
+| `POST /api/refresh` | Clear the cache (admin token required) |
 
-### Security notes (current state)
+### Security notes
 
-API keys are read only from environment variables and are used only on the server. That is the only access control today: the API has **no authentication or rate limiting**, and CORS is open. All visitors share the cached results, which limits model calls in normal use, but someone calling `/api/refresh` or `/api/chat` repeatedly could still run up API costs. Planned hardening:
+**In this code.** API keys are read only from environment variables and are used only on the server. Routes that cost money are protected in `lib/abuse-limits.js`, and `tests/abuse-limits.test.js` covers these protections:
 
-- rate limiting
-- protecting or removing `/api/refresh`
-- a length limit on chat input
+- **Chat:** per-IP limits (per minute and per day), a 500-character input cap, a global daily cap, and a limit on concurrent requests. Per-IP counters run before input validation, so bad requests still count against the limit.
+- **Podcast picks and audio:** concurrent requests for the same item share one upstream call instead of each starting their own.
+- **Admin routes** (`/api/refresh`, `/api/admin/client-ip`): require a bearer token (`NEWS_ADMIN_TOKEN`), compared in constant time. If the token isn't set, they return 503 instead of running unauthenticated.
+
+**Design assumptions.** The counters live in memory, so they only work as intended when the server runs as a single instance. They reset on restart, so hard spending limits should also be set in the Anthropic and OpenAI consoles. CORS is open.
+
+**Not verified in production.** This repo is a snapshot of the code, not a record of what's deployed. This README doesn't confirm that nocachenews.com currently runs this version, that `NEWS_ADMIN_TOKEN` is set there, that production runs a single instance, or that console spending limits are in place.
 
 ## Running locally
 
@@ -92,7 +99,7 @@ Requirements: Node.js 18 or newer. Production runs a recent Node release.
 
 ```bash
 npm install
-cp .env.example .env        # add your own keys; both are optional
+cp .env.example .env        # add your own keys; all are optional
 npm run build               # installs and builds the client into client/dist
 npm start                   # http://localhost:3001
 npm test                    # unit tests
